@@ -14,19 +14,12 @@ A production-ready flight booking system built with Go and Temporal demonstratin
 ## Quick Start
 
 ```bash
-# 1. Setup (first time only - creates venv, starts Docker)
-make setup
-
-# 2. Start all services
-make start
-
-# 3. Open the application
-open http://localhost:8080        # Your booking app
-open http://localhost:8088        # Temporal UI
-
-# 4. Run tests
-make test
+make setup      # First time only
+make start      # Start all services
+make test       # Run tests
 ```
+
+**URLs**: http://localhost:8080 (app) | http://localhost:8088 (Temporal UI)
 
 ## Architecture
 
@@ -110,94 +103,18 @@ CREATED → SEATS_RESERVED → PAYMENT_PENDING → CONFIRMED
 ## Testing
 
 ```bash
-# Run all tests (uses virtual environment)
-make test
-
-# Run specific test
-source venv/bin/activate
-pytest tests/test_booking_flow.py::TestBasicBooking -v
-
-# Run in parallel
-make test-parallel
+make test                                                    # All tests
+pytest tests/test_booking_flow.py::TestBasicBooking -v     # Specific test
+make test-parallel                                           # Parallel execution
 ```
-
-**Test Coverage**: Basic flow, concurrency, timeouts, retries, cancellation
 
 ## Development
 
-### Prerequisites
-- Docker & Docker Compose
-- Go 1.21+
-- Python 3.9+
-- Make (optional)
-
-### Manual Setup
-```bash
-# Start Docker services
-docker-compose up -d
-sleep 60  # Wait for Temporal to initialize
-
-# Create Python venv
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Install Go dependencies
-go mod download
-
-# Start worker
-go run cmd/worker/main.go &
-
-# Start server
-go run cmd/server/main.go &
-```
-
-### Building
-```bash
-make build  # Creates bin/server and bin/worker
-```
-
-### Database Access
-```bash
-make db-shell  # Opens MySQL shell
-```
-
-## Docker Services
-
-**4 containers** (3 required + 1 optional):
-1. **MySQL** (port 3306) - Database
-2. **Temporal Server** (port 7233) - Workflow engine
-3. **Temporal UI** (port 8088) - Web interface
-4. **Admin Tools** (optional) - CLI tools
+**Prerequisites**: Docker, Go 1.21+, Python 3.9+
 
 ```bash
-# Check status
-docker-compose ps
-
-# View logs
-docker-compose logs -f temporal
-
-# Restart
-docker-compose restart
-
-# Clean everything
-docker-compose down -v && rm -rf data/
-```
-
-**Note**: Temporal takes 30-60 seconds to initialize on first start.
-
-## Common Commands
-
-```bash
-make setup          # Initial setup
-make start          # Start all services
-make stop           # Stop all services
-make test           # Run tests
-make build          # Build binaries
-make clean          # Remove everything
-make logs           # View Docker logs
-make db-shell       # MySQL shell
-make help           # Show all commands
+make build       # Build binaries (bin/server, bin/worker)
+make db-shell    # MySQL shell
 ```
 
 ## Usage Examples
@@ -232,36 +149,9 @@ curl -X DELETE http://localhost:8080/api/orders/{orderId}
 
 ## Troubleshooting
 
-### Temporal not starting
 ```bash
-# Wait longer (normal behavior)
-sleep 60
-curl http://localhost:8088
-
-# Or check logs
-docker-compose logs temporal
-```
-
-### Port conflicts
-```bash
-# Check what's using ports
-lsof -i :3306  # MySQL
-lsof -i :7233  # Temporal
-lsof -i :8088  # Temporal UI
-lsof -i :8080  # Your API
-```
-
-### Complete reset
-```bash
-make clean
-make setup
-```
-
-### Python venv issues
-```bash
-# Recreate venv
-rm -rf venv
-make setup
+make logs               # Check Docker logs
+make clean && make setup    # Complete reset
 ```
 
 ## Key Workflows
@@ -296,28 +186,6 @@ make setup
 - Metrics/monitoring
 - Rate limiting
 
-## Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Make changes with tests
-4. Run `make test`
-5. Submit pull request
-
 ## License
 
 MIT
-
-## Support
-
-- **Issues**: GitHub Issues
-- **Temporal Docs**: https://docs.temporal.io/
-- **Test Examples**: See `tests/` directory
-
----
-
-**Quick Reference:**
-- Frontend: http://localhost:8080
-- Temporal UI: http://localhost:8088
-- API: http://localhost:8080/api
-- Health: http://localhost:8080/health
