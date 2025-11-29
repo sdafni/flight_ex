@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Booking System</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Flight Booking System</h1>
+        <div class="flight-info">
+            <h2>Flight FL123</h2>
+            <p>Available Seats: 30</p>
+        </div>
+
+        <div class="booking-section">
+            <!-- User ID Input -->
+            <div class="user-section">
+                <label for="userId">User ID:</label>
+                <input type="text" id="userId" placeholder="Enter your user ID" required>
+            </div>
+
+            <!-- Seat Selection Grid -->
+            <div class="seat-grid-container">
+                <h3>Select Your Seats</h3>
+                <div id="seat-legend">
+                    <span class="legend-item"><span class="seat available"></span> Available</span>
+                    <span class="legend-item"><span class="seat reserved"></span> Reserved</span>
+                    <span class="legend-item"><span class="seat booked"></span> Booked</span>
+                    <span class="legend-item"><span class="seat selected"></span> Selected</span>
+                </div>
+                <div id="seat-grid" hx-get="/api/flights/FL123/seats" hx-trigger="load, every 2s" hx-swap="innerHTML">
+                    Loading seats...
+                </div>
+            </div>
+
+            <!-- Selected Seats Display -->
+            <div class="selected-seats">
+                <h3>Selected Seats: <span id="selected-seats-list">None</span></h3>
+                <button id="book-btn" onclick="createBooking()" disabled>Book Seats</button>
+            </div>
+
+            <!-- Order Status Section -->
+            <div id="order-section" style="display: none;">
+                <div class="order-info">
+                    <h3>Order Status</h3>
+                    <div id="order-details">
+                        <p><strong>Order ID:</strong> <span id="order-id"></span></p>
+                        <p><strong>Status:</strong> <span id="order-status"></span></p>
+                        <p><strong>Time Remaining:</strong> <span id="countdown">00:00</span></p>
+                    </div>
+
+                    <!-- Seat Update Section -->
+                    <div id="update-seats-section" style="display: none;">
+                        <button onclick="enableSeatUpdate()">Change Seats</button>
+                        <button id="update-seats-btn" onclick="updateSeats()" style="display: none;">Update Seats</button>
+                    </div>
+
+                    <!-- Payment Section -->
+                    <div id="payment-section" style="display: none;">
+                        <h4>Submit Payment</h4>
+                        <input type="text" id="payment-code" placeholder="Enter 5-digit code" maxlength="5" pattern="[0-9]{5}">
+                        <button onclick="submitPayment()">Pay Now</button>
+                    </div>
+
+                    <!-- Cancel Button -->
+                    <div id="cancel-section" style="display: none;">
+                        <button class="cancel-btn" onclick="cancelOrder()">Cancel Order</button>
+                    </div>
+
+                    <!-- New Booking Button -->
+                    <div id="new-booking-section" style="display: none;">
+                        <button onclick="resetBooking()">Make New Booking</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
