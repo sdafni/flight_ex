@@ -7,6 +7,7 @@ import (
 	"flight-booking-system/internal/models"
 	"flight-booking-system/internal/temporal/activities"
 
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -38,10 +39,17 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 	// Set up activity options
 	activityOptions := workflow.ActivityOptions{
 		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    30 * time.Second,
+			MaximumAttempts:    5,
+		},
 	}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
 
 	// Set up query handler for real-time status
+	// yuvald TODO  explain
 	err := workflow.SetQueryHandler(ctx, QueryGetStatus, func() (*models.BookingState, error) {
 		// Calculate time remaining
 		elapsed := workflow.Now(ctx).Sub(state.ReservationStartAt)
@@ -83,6 +91,8 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 	// Start reservation timer
 	timerCtx, cancelTimer := workflow.WithCancel(ctx)
 	timerFuture := workflow.NewTimer(timerCtx, cfg.ReservationTimeout)
+
+	//explain all temporal idioms
 
 	// Main event loop
 	for {

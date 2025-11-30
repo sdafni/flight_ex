@@ -62,13 +62,13 @@ func (db *DB) ReserveSeats(flightID string, seats []string, orderID, userID stri
 			}
 		}
 
-		return fmt.Errorf("seat %s is not available", seatNumber)
+		return fmt.Errorf("seat %s: %w", seatNumber, ErrSeatNotAvailable)
 	}
 
 	// Verify all requested seats exist
 	for _, seat := range seats {
 		if !foundSeats[seat] {
-			return fmt.Errorf("seat %s does not exist", seat)
+			return fmt.Errorf("seat %s: %w", seat, ErrSeatNotExist)
 		}
 	}
 

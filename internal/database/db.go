@@ -2,10 +2,17 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+)
+
+// Sentinel errors for non-retriable conditions
+var (
+	ErrSeatNotAvailable = errors.New("seat not available")
+	ErrSeatNotExist     = errors.New("seat does not exist")
 )
 
 type DB struct {

@@ -2,9 +2,11 @@ package activities
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"flight-booking-system/internal/database"
+	"go.temporal.io/sdk/temporal"
 )
 
 type SeatActivities struct {
@@ -19,6 +21,15 @@ func NewSeatActivities(db *database.DB) *SeatActivities {
 func (a *SeatActivities) ReserveSeats(ctx context.Context, flightID string, seats []string, orderID, userID string) error {
 	err := a.DB.ReserveSeats(flightID, seats, orderID, userID)
 	if err != nil {
+		// Check if this is a seat availability error (non-retriable)
+		if errors.Is(err, database.ErrSeatNotAvailable) || errors.Is(err, database.ErrSeatNotExist) {
+			return temporal.NewNonRetryableApplicationError(
+				err.Error(),
+				"SeatConflict",
+				err,
+			)
+		}
+		// Other database errors should be retried (might be transient)
 		return fmt.Errorf("failed to reserve seats: %w", err)
 	}
 	return nil

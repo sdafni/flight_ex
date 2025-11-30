@@ -184,11 +184,39 @@ class TestConcurrency:
             result1 = future1.result()
             result2 = future2.result()
 
-        # One should succeed (201), one should fail
-        status_codes = [result1[0], result2[0]]
-        assert 201 in status_codes
-        # The other should fail with 500 (seat not available error)
-        assert status_codes.count(201) == 1
+        # Both requests should succeed (201) - seat reservation is async
+        assert result1[0] == 201, f"First request should return 201, got {result1[0]}"
+        assert result2[0] == 201, f"Second request should return 201, got {result2[0]}"
+
+        order_id1 = result1[1]["orderId"]
+        order_id2 = result2[1]["orderId"]
+
+        # Wait for workflows to process seat reservations
+        time.sleep(2)
+
+        # Check final statuses - one should succeed, one should fail
+        resp1 = requests.get(f"{BASE_URL}/orders/{order_id1}")
+        resp2 = requests.get(f"{BASE_URL}/orders/{order_id2}")
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+
+        status1 = resp1.json()["status"]
+        status2 = resp2.json()["status"]
+
+        statuses = [status1, status2]
+
+        # One should have reserved seats successfully, one should have failed
+        success_statuses = ["SEATS_RESERVED", "CONFIRMED", "PAYMENT_PENDING"]
+        failure_statuses = ["FAILED", "EXPIRED"]
+
+        assert any(s in success_statuses for s in statuses), f"Expected one success, got statuses: {statuses}"
+        assert any(s in failure_statuses for s in statuses), f"Expected one failure, got statuses: {statuses}"
+
+        # Cleanup: Cancel the successful order to release the seat
+        successful_order_id = order_id1 if status1 in success_statuses else order_id2
+        requests.delete(f"{BASE_URL}/orders/{successful_order_id}")
+        time.sleep(1)
 
     def test_seat_update_releases_old_seats(self):
         """User updates seat selection, old seats become available"""

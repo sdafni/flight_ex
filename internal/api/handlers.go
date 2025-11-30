@@ -82,7 +82,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		WorkflowID: we.GetID(),
 		RunID:      we.GetRunID(),
 	}
-
+	//yuvald TODO why not orm?
 	if err := h.DB.CreateOrder(order); err != nil {
 		http.Error(w, fmt.Sprintf("failed to create order: %v", err), http.StatusInternalServerError)
 		return
