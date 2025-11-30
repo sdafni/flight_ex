@@ -192,7 +192,8 @@ class TestConcurrency:
         order_id2 = result2[1]["orderId"]
 
         # Wait for workflows to process seat reservations
-        time.sleep(2)
+        # Seat conflicts should be non-retryable, so 3 seconds should be enough
+        time.sleep(3)
 
         # Check final statuses - one should succeed, one should fail
         resp1 = requests.get(f"{BASE_URL}/orders/{order_id1}")
@@ -207,14 +208,11 @@ class TestConcurrency:
         statuses = [status1, status2]
 
         # One should have reserved seats successfully, one should have failed
-        success_statuses = ["SEATS_RESERVED", "CONFIRMED", "PAYMENT_PENDING"]
-        failure_statuses = ["FAILED", "EXPIRED"]
-
-        assert any(s in success_statuses for s in statuses), f"Expected one success, got statuses: {statuses}"
-        assert any(s in failure_statuses for s in statuses), f"Expected one failure, got statuses: {statuses}"
+        assert "SEATS_RESERVED" in statuses, f"Expected one SEATS_RESERVED, got statuses: {statuses}"
+        assert "FAILED" in statuses, f"Expected one FAILED, got statuses: {statuses}"
 
         # Cleanup: Cancel the successful order to release the seat
-        successful_order_id = order_id1 if status1 in success_statuses else order_id2
+        successful_order_id = order_id1 if status1 == "SEATS_RESERVED" else order_id2
         requests.delete(f"{BASE_URL}/orders/{successful_order_id}")
         time.sleep(1)
 
