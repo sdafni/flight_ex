@@ -228,12 +228,21 @@ class TestConcurrency:
 
         time.sleep(1)
 
-        # User 2 tries A5 (should fail)
+        # User 2 tries A5 (order creation succeeds but workflow will fail)
         resp2 = requests.post(f"{BASE_URL}/flights/{FLIGHT_ID}/orders", json={
             "userId": "eve",
             "seats": ["A5"]
         })
-        assert resp2.status_code in [500]  # Should fail
+        assert resp2.status_code == 201
+        order_id2 = resp2.json()["orderId"]
+
+        # Wait for workflow to fail (seat conflicts should be non-retryable)
+        time.sleep(3)
+
+        # Check that order failed
+        resp_check = requests.get(f"{BASE_URL}/orders/{order_id2}")
+        assert resp_check.status_code == 200
+        assert resp_check.json()["status"] == "FAILED"
 
         # User 1 changes to B5
         resp3 = requests.post(f"{BASE_URL}/orders/{order_id1}/seats", json={
