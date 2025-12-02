@@ -29,10 +29,19 @@ function renderSeats(responseText) {
             } else if (seat.status === 'RESERVED') {
                 // Check if reserved by current user
                 if (currentOrderId && seat.reservedBy === currentOrderId) {
-                    seatDiv.classList.add('selected');
-                    selectedSeats.add(seat.seatNumber);
+                    // In update mode, treat reserved seats like available seats
                     if (isUpdatingSeats) {
+                        // Only add to selectedSeats if user has explicitly selected it
+                        if (selectedSeats.has(seat.seatNumber)) {
+                            seatDiv.classList.add('selected');
+                        } else {
+                            seatDiv.classList.add('available');
+                        }
                         seatDiv.onclick = () => toggleSeat(seat.seatNumber);
+                    } else {
+                        // Not in update mode, show as selected and add to set
+                        seatDiv.classList.add('selected');
+                        selectedSeats.add(seat.seatNumber);
                     }
                 } else {
                     seatDiv.classList.add('reserved');
@@ -221,6 +230,8 @@ function enableSeatUpdate() {
     isUpdatingSeats = true;
     selectedSeats.clear();
     document.getElementById('update-seats-btn').style.display = 'inline-block';
+    // Refresh seat grid to reflect the cleared selection
+    htmx.trigger('#seat-grid', 'load');
     alert('Select new seats, then click "Update Seats"');
 }
 
