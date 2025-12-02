@@ -45,8 +45,8 @@ func (a *SeatActivities) ReleaseSeats(ctx context.Context, orderID string) error
 }
 
 // UpdateSeats updates seat selection for an order
-func (a *SeatActivities) UpdateSeats(ctx context.Context, orderID string, oldSeats, newSeats []string) error {
-	err := a.DB.UpdateSeats(orderID, oldSeats, newSeats)
+func (a *SeatActivities) UpdateSeats(ctx context.Context, orderID string, newSeats []string) error {
+	err := a.DB.UpdateSeats(orderID, newSeats)
 	if err != nil {
 		// Check if this is a seat availability error (non-retriable)
 		if errors.Is(err, database.ErrSeatNotAvailable) || errors.Is(err, database.ErrSeatNotExist) {

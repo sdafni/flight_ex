@@ -102,24 +102,38 @@ func (db *DB) ReserveSeats(flightID string, seats []string, orderID, userID stri
 	return tx.Commit()
 }
 
-// ReleaseSeats releases seats reserved by an order
-func (db *DB) ReleaseSeats(orderID string) error {
+// releaseSeatsInTx releases seats within an existing transaction
+func releaseSeatsInTx(tx *sql.Tx, orderID string) error {
 	query := `
 		UPDATE seats
 		SET status = ?, reserved_by = NULL, user_id = NULL, reserved_at = NULL
 		WHERE reserved_by = ?
 	`
 
-	_, err := db.Exec(query, models.SeatAvailable, orderID)
-	if err != nil {
+	if _, err := tx.Exec(query, models.SeatAvailable, orderID); err != nil {
 		return fmt.Errorf("failed to release seats: %w", err)
 	}
 
 	return nil
 }
 
+// ReleaseSeats releases seats reserved by an order
+func (db *DB) ReleaseSeats(orderID string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := releaseSeatsInTx(tx, orderID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // UpdateSeats updates seat selection for an order
-func (db *DB) UpdateSeats(orderID string, oldSeats, newSeats []string) error {
+func (db *DB) UpdateSeats(orderID string, newSeats []string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -133,29 +147,12 @@ func (db *DB) UpdateSeats(orderID string, oldSeats, newSeats []string) error {
 		return fmt.Errorf("failed to get order info: %w", err)
 	}
 
-	// Release old seats
-	if len(oldSeats) > 0 {
-		placeholders := strings.Repeat("?,", len(oldSeats))
-		placeholders = placeholders[:len(placeholders)-1]
-
-		releaseQuery := fmt.Sprintf(`
-			UPDATE seats
-			SET status = ?, reserved_by = NULL, user_id = NULL, reserved_at = NULL
-			WHERE reserved_by = ? AND seat_number IN (%s)
-		`, placeholders)
-
-		args := make([]interface{}, 0, len(oldSeats)+2)
-		args = append(args, models.SeatAvailable, orderID)
-		for _, seat := range oldSeats {
-			args = append(args, seat)
-		}
-
-		if _, err := tx.Exec(releaseQuery, args...); err != nil {
-			return fmt.Errorf("failed to release old seats: %w", err)
-		}
+	// Release all current seats for this order
+	if err := releaseSeatsInTx(tx, orderID); err != nil {
+		return err
 	}
 
-	// Reserve new seats (reuse shared logic)
+	// Reserve new seats
 	if len(newSeats) > 0 {
 		if err := reserveSeatsInTx(tx, flightID, newSeats, orderID, userID); err != nil {
 			return err

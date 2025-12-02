@@ -103,7 +103,7 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 
 			// Update seats
 			err := workflow.ExecuteActivity(activityCtx, seatActivities.UpdateSeats,
-				state.OrderID, state.Seats, newSeats).Get(ctx, nil)
+				state.OrderID, newSeats).Get(ctx, nil)
 			if err != nil {
 				logger.Error("Failed to update seats", "error", err)
 				return
