@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_code VARCHAR(5) NOT NULL,
     transaction_id VARCHAR(100),
     status VARCHAR(20) NOT NULL,
-    attempts INT DEFAULT 0,
+    error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_order_id (order_id),

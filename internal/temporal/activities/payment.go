@@ -57,29 +57,45 @@ func (a *PaymentActivities) ValidatePayment(ctx context.Context, paymentCode str
 	}, nil
 }
 
-// RecordPaymentAttempt records a payment attempt in the database
-func (a *PaymentActivities) RecordPaymentAttempt(ctx context.Context, orderID, paymentCode string, attempts int) error {
-	paymentID := uuid.New().String()
+// UpdatePaymentRecord creates or updates a payment record with the result
+func (a *PaymentActivities) UpdatePaymentRecord(ctx context.Context, orderID, paymentCode, status string, transactionID *string, errorMessage *string) error {
+	// First, try to update existing record
+	updateQuery := `
+		UPDATE payments
+		SET status = ?, transaction_id = ?, error_message = ?, updated_at = NOW()
+		WHERE order_id = ?
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
 
-	payment := &models.Payment{
-		PaymentID:   paymentID,
-		OrderID:     orderID,
-		PaymentCode: paymentCode,
-		Status:      "PENDING",
-		Attempts:    attempts,
-	}
-
-	err := a.DB.CreatePayment(payment)
+	result, err := a.DB.Exec(updateQuery, status, transactionID, errorMessage, orderID)
 	if err != nil {
-		return fmt.Errorf("failed to record payment attempt: %w", err)
+		return fmt.Errorf("failed to update payment record: %w", err)
 	}
 
-	return nil
-}
+	// If no rows were updated, create a new record
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
 
-// UpdatePaymentRecord updates a payment record with the result
-func (a *PaymentActivities) UpdatePaymentRecord(ctx context.Context, orderID, status string, attempts int, transactionID *string) error {
-	// For simplicity, we'll update the most recent payment record for this order
-	// In production, you'd want to track payment IDs more carefully
+	if rowsAffected == 0 {
+		// Create new payment record
+		paymentID := uuid.New().String()
+		payment := &models.Payment{
+			PaymentID:     paymentID,
+			OrderID:       orderID,
+			PaymentCode:   paymentCode,
+			Status:        status,
+			TransactionID: transactionID,
+			ErrorMessage:  errorMessage,
+		}
+
+		err := a.DB.CreatePayment(payment)
+		if err != nil {
+			return fmt.Errorf("failed to create payment record: %w", err)
+		}
+	}
+
 	return nil
 }

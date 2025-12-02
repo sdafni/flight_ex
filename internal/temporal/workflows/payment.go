@@ -35,17 +35,33 @@ func PaymentValidationWorkflow(ctx workflow.Context, paymentCode string, orderID
 	err := workflow.ExecuteActivity(ctx, paymentActivities.ValidatePayment, paymentCode, orderID).Get(ctx, &result)
 	if err != nil {
 		logger.Error("Payment validation failed after retries", "error", err)
+		errorMsg := fmt.Sprintf("payment validation failed: %v", err)
+
+		// Record payment failure
+		workflow.ExecuteActivity(ctx, paymentActivities.UpdatePaymentRecord,
+			orderID, paymentCode, "FAILED", nil, &errorMsg).Get(ctx, nil)
+
 		return &models.PaymentResult{
 			Success:      false,
-			ErrorMessage: fmt.Sprintf("payment validation failed: %v", err),
+			ErrorMessage: errorMsg,
 		}, err
 	}
 
 	if !result.Success {
 		logger.Error("Payment validation unsuccessful", "errorMessage", result.ErrorMessage)
+
+		// Record payment failure
+		workflow.ExecuteActivity(ctx, paymentActivities.UpdatePaymentRecord,
+			orderID, paymentCode, "FAILED", nil, &result.ErrorMessage).Get(ctx, nil)
+
 		return result, fmt.Errorf("payment validation failed: %s", result.ErrorMessage)
 	}
 
 	logger.Info("Payment validation successful", "transactionID", result.TransactionID)
+
+	// Record payment success
+	workflow.ExecuteActivity(ctx, paymentActivities.UpdatePaymentRecord,
+		orderID, paymentCode, "SUCCESS", &result.TransactionID, nil).Get(ctx, nil)
+
 	return result, nil
 }

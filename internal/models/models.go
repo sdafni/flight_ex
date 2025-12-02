@@ -50,7 +50,7 @@ type Payment struct {
 	PaymentCode   string    `json:"paymentCode" db:"payment_code"`
 	TransactionID *string   `json:"transactionId,omitempty" db:"transaction_id"`
 	Status        string    `json:"status" db:"status"`
-	Attempts      int       `json:"attempts" db:"attempts"`
+	ErrorMessage  *string   `json:"errorMessage,omitempty" db:"error_message"`
 	CreatedAt     time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt     time.Time `json:"updatedAt" db:"updated_at"`
 }

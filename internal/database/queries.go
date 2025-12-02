@@ -314,12 +314,12 @@ func (db *DB) GetOrderSeats(orderID string) ([]string, error) {
 // CreatePayment creates a payment record
 func (db *DB) CreatePayment(payment *models.Payment) error {
 	query := `
-		INSERT INTO payments (payment_id, order_id, payment_code, transaction_id, status, attempts)
+		INSERT INTO payments (payment_id, order_id, payment_code, transaction_id, status, error_message)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := db.Exec(query, payment.PaymentID, payment.OrderID, payment.PaymentCode,
-		payment.TransactionID, payment.Status, payment.Attempts)
+		payment.TransactionID, payment.Status, payment.ErrorMessage)
 	if err != nil {
 		return fmt.Errorf("failed to create payment: %w", err)
 	}
@@ -328,14 +328,14 @@ func (db *DB) CreatePayment(payment *models.Payment) error {
 }
 
 // UpdatePayment updates a payment record
-func (db *DB) UpdatePayment(paymentID, status string, attempts int, transactionID *string) error {
+func (db *DB) UpdatePayment(paymentID, status string, transactionID *string, errorMessage *string) error {
 	query := `
 		UPDATE payments
-		SET status = ?, attempts = ?, transaction_id = ?, updated_at = NOW()
+		SET status = ?, transaction_id = ?, error_message = ?, updated_at = NOW()
 		WHERE payment_id = ?
 	`
 
-	_, err := db.Exec(query, status, attempts, transactionID, paymentID)
+	_, err := db.Exec(query, status, transactionID, errorMessage, paymentID)
 	if err != nil {
 		return fmt.Errorf("failed to update payment: %w", err)
 	}

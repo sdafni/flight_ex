@@ -55,7 +55,6 @@ func main() {
 
 	paymentActivities := activities.NewPaymentActivities(db)
 	w.RegisterActivity(paymentActivities.ValidatePayment)
-	w.RegisterActivity(paymentActivities.RecordPaymentAttempt)
 	w.RegisterActivity(paymentActivities.UpdatePaymentRecord)
 
 	orderActivities := activities.NewOrderActivities(db)
