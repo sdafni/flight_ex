@@ -10,14 +10,9 @@ import (
 	"flight-booking-system/internal/models"
 )
 
-// ReserveSeats reserves seats for an order with row-level locking
-func (db *DB) ReserveSeats(flightID string, seats []string, orderID, userID string) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
+// reserveSeatsInTx reserves seats within an existing transaction
+// This is an internal helper used by both ReserveSeats and UpdateSeats
+func reserveSeatsInTx(tx *sql.Tx, flightID string, seats []string, orderID, userID string) error {
 	// Lock rows for update
 	placeholders := strings.Repeat("?,", len(seats))
 	placeholders = placeholders[:len(placeholders)-1]
@@ -89,6 +84,21 @@ func (db *DB) ReserveSeats(flightID string, seats []string, orderID, userID stri
 		return fmt.Errorf("failed to reserve seats: %w", err)
 	}
 
+	return nil
+}
+
+// ReserveSeats reserves seats for an order with row-level locking
+func (db *DB) ReserveSeats(flightID string, seats []string, orderID, userID string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := reserveSeatsInTx(tx, flightID, seats, orderID, userID); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -145,73 +155,10 @@ func (db *DB) UpdateSeats(orderID string, oldSeats, newSeats []string) error {
 		}
 	}
 
-	// Reserve new seats (with locking)
+	// Reserve new seats (reuse shared logic)
 	if len(newSeats) > 0 {
-		placeholders := strings.Repeat("?,", len(newSeats))
-		placeholders = placeholders[:len(placeholders)-1]
-
-		lockQuery := fmt.Sprintf(`
-			SELECT seat_id, seat_number, status, reserved_at
-			FROM seats
-			WHERE flight_id = ? AND seat_number IN (%s)
-			FOR UPDATE
-		`, placeholders)
-
-		args := make([]interface{}, 0, len(newSeats)+1)
-		args = append(args, flightID)
-		for _, seat := range newSeats {
-			args = append(args, seat)
-		}
-
-		rows, err := tx.Query(lockQuery, args...)
-		if err != nil {
-			return fmt.Errorf("failed to lock new seats: %w", err)
-		}
-		defer rows.Close()
-
-		foundSeats := make(map[string]bool)
-		for rows.Next() {
-			var seatID, seatNumber, status string
-			var reservedAt sql.NullTime
-
-			if err := rows.Scan(&seatID, &seatNumber, &status, &reservedAt); err != nil {
-				return fmt.Errorf("failed to scan seat: %w", err)
-			}
-
-			foundSeats[seatNumber] = true
-
-			if status == models.SeatAvailable {
-				continue
-			} else if status == models.SeatReserved && reservedAt.Valid {
-				if time.Since(reservedAt.Time) > 15*time.Minute {
-					continue
-				}
-			}
-
-			return fmt.Errorf("seat %s is not available", seatNumber)
-		}
-
-		for _, seat := range newSeats {
-			if !foundSeats[seat] {
-				return fmt.Errorf("seat %s does not exist", seat)
-			}
-		}
-
-		// Reserve new seats
-		reserveQuery := fmt.Sprintf(`
-			UPDATE seats
-			SET status = ?, reserved_by = ?, user_id = ?, reserved_at = NOW()
-			WHERE flight_id = ? AND seat_number IN (%s)
-		`, placeholders)
-
-		reserveArgs := make([]interface{}, 0, len(newSeats)+4)
-		reserveArgs = append(reserveArgs, models.SeatReserved, orderID, userID, flightID)
-		for _, seat := range newSeats {
-			reserveArgs = append(reserveArgs, seat)
-		}
-
-		if _, err := tx.Exec(reserveQuery, reserveArgs...); err != nil {
-			return fmt.Errorf("failed to reserve new seats: %w", err)
+		if err := reserveSeatsInTx(tx, flightID, newSeats, orderID, userID); err != nil {
+			return err
 		}
 	}
 

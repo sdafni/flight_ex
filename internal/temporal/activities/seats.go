@@ -48,6 +48,15 @@ func (a *SeatActivities) ReleaseSeats(ctx context.Context, orderID string) error
 func (a *SeatActivities) UpdateSeats(ctx context.Context, orderID string, oldSeats, newSeats []string) error {
 	err := a.DB.UpdateSeats(orderID, oldSeats, newSeats)
 	if err != nil {
+		// Check if this is a seat availability error (non-retriable)
+		if errors.Is(err, database.ErrSeatNotAvailable) || errors.Is(err, database.ErrSeatNotExist) {
+			return temporal.NewNonRetryableApplicationError(
+				err.Error(),
+				"SeatConflict",
+				err,
+			)
+		}
+		// Other database errors should be retried (might be transient)
 		return fmt.Errorf("failed to update seats: %w", err)
 	}
 	return nil
