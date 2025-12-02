@@ -51,13 +51,9 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 	// Set up query handler for real-time status
 	// yuvald TODO  explain
 	err := workflow.SetQueryHandler(ctx, QueryGetStatus, func() (*models.BookingState, error) {
-		// Calculate time remaining
-		elapsed := workflow.Now(ctx).Sub(state.ReservationStartAt)
-		remaining := cfg.ReservationTimeout - elapsed
-		if remaining < 0 {
-			remaining = 0
-		}
-		state.TimeRemaining = int64(remaining.Seconds())
+		// NOTE: We don't calculate TimeRemaining here because workflow.Now(ctx) returns
+		// deterministic time that doesn't advance during idle periods. The server calculates
+		// it using wall-clock time (time.Since) when responding to API requests.
 		return state, nil
 	})
 	if err != nil {

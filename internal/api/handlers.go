@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"flight-booking-system/internal/config"
 	"flight-booking-system/internal/database"
 	"flight-booking-system/internal/models"
 	"flight-booking-system/internal/temporal/workflows"
@@ -137,13 +138,23 @@ func (h *Handler) GetOrderStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate time remaining on the server side using actual current time
+	// (workflow.Now() in query handlers returns deterministic time that doesn't advance)
+	cfg := config.Load()
+	elapsed := time.Since(state.ReservationStartAt)
+	remaining := cfg.ReservationTimeout - elapsed
+	if remaining < 0 {
+		remaining = 0
+	}
+	timeRemaining := int64(remaining.Seconds())
+
 	response := models.OrderStatusResponse{
 		OrderID:       state.OrderID,
 		FlightID:      state.FlightID,
 		UserID:        state.UserID,
 		Seats:         state.Seats,
 		Status:        state.Status,
-		TimeRemaining: state.TimeRemaining,
+		TimeRemaining: timeRemaining,
 		ReservedAt:    &state.ReservationStartAt,
 	}
 

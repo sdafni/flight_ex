@@ -72,7 +72,8 @@ type BookingState struct {
 	Status             string    `json:"status"`
 	ReservationStartAt time.Time `json:"reservationStartAt"`
 	PaymentAttempts    int       `json:"paymentAttempts"`
-	TimeRemaining      int64     `json:"timeRemaining"` // seconds
+	// Note: TimeRemaining is NOT stored here because workflow.Now() is deterministic
+	// and doesn't advance during idle periods. Calculate it server-side using wall-clock time.
 }
 
 // BookingResult represents workflow output
