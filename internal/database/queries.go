@@ -281,7 +281,7 @@ func (db *DB) UpdateOrderStatus(orderID, status string) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return errors.New("order not found")
+		return ErrOrderNotFound
 	}
 
 	return nil

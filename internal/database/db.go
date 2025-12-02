@@ -13,6 +13,7 @@ import (
 var (
 	ErrSeatNotAvailable = errors.New("seat not available")
 	ErrSeatNotExist     = errors.New("seat does not exist")
+	ErrOrderNotFound    = errors.New("order not found")
 )
 
 type DB struct {

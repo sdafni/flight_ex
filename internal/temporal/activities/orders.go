@@ -2,10 +2,12 @@ package activities
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
 	"flight-booking-system/internal/database"
+	"go.temporal.io/sdk/temporal"
 )
 
 type OrderActivities struct {
@@ -20,6 +22,14 @@ func NewOrderActivities(db *database.DB) *OrderActivities {
 func (a *OrderActivities) UpdateOrderStatus(ctx context.Context, orderID, status string) error {
 	err := a.DB.UpdateOrderStatus(orderID, status)
 	if err != nil {
+		// Order not found is a permanent error - don't retry
+		if errors.Is(err, database.ErrOrderNotFound) {
+			return temporal.NewNonRetryableApplicationError(
+				err.Error(),
+				"OrderNotFound",
+				err,
+			)
+		}
 		return fmt.Errorf("failed to update order status: %w", err)
 	}
 	return nil
