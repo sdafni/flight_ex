@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"fmt"
 	"time"
 
 	"flight-booking-system/internal/config"
@@ -91,6 +92,7 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 	//explain all temporal idioms
 
 	// Main event loop
+	var workflowErr error
 	for {
 		selector := workflow.NewSelector(ctx)
 
@@ -162,8 +164,13 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 
 				state.Status = models.StatusFailed
 
-				// Release seats
-				workflow.ExecuteActivity(activityCtx, seatActivities.ReleaseSeats, state.OrderID).Get(ctx, nil)
+				// Release seats - fail workflow if this fails to prevent data inconsistency
+				releaseErr := workflow.ExecuteActivity(activityCtx, seatActivities.ReleaseSeats, state.OrderID).Get(ctx, nil)
+				if releaseErr != nil {
+					logger.Error("Failed to release seats after payment failure", "error", releaseErr)
+					workflowErr = fmt.Errorf("failed to release seats: %w", releaseErr)
+					return
+				}
 
 				// Update order status
 				workflow.ExecuteActivity(activityCtx, orderActivities.UpdateOrderStatus,
@@ -182,8 +189,13 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 
 			state.Status = models.StatusCancelled
 
-			// Release seats
-			workflow.ExecuteActivity(activityCtx, seatActivities.ReleaseSeats, state.OrderID).Get(ctx, nil)
+			// Release seats - fail workflow if this fails to prevent data inconsistency
+			releaseErr := workflow.ExecuteActivity(activityCtx, seatActivities.ReleaseSeats, state.OrderID).Get(ctx, nil)
+			if releaseErr != nil {
+				logger.Error("Failed to release seats after cancellation", "error", releaseErr)
+				workflowErr = fmt.Errorf("failed to release seats: %w", releaseErr)
+				return
+			}
 
 			// Update order status
 			workflow.ExecuteActivity(activityCtx, orderActivities.UpdateOrderStatus,
@@ -205,8 +217,13 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 
 			state.Status = models.StatusExpired
 
-			// Release seats
-			workflow.ExecuteActivity(activityCtx, seatActivities.ReleaseSeats, state.OrderID).Get(ctx, nil)
+			// Release seats - fail workflow if this fails to prevent data inconsistency
+			releaseErr := workflow.ExecuteActivity(activityCtx, seatActivities.ReleaseSeats, state.OrderID).Get(ctx, nil)
+			if releaseErr != nil {
+				logger.Error("Failed to release seats after expiration", "error", releaseErr)
+				workflowErr = fmt.Errorf("failed to release seats: %w", releaseErr)
+				return
+			}
 
 			// Update order status
 			workflow.ExecuteActivity(activityCtx, orderActivities.UpdateOrderStatus,
@@ -221,9 +238,16 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 		if state.Status == models.StatusConfirmed ||
 			state.Status == models.StatusFailed ||
 			state.Status == models.StatusExpired ||
-			state.Status == models.StatusCancelled {
+			state.Status == models.StatusCancelled ||
+			workflowErr != nil {
 			break
 		}
+	}
+
+	// Check if workflow failed due to seat release error
+	if workflowErr != nil {
+		logger.Error("BookingWorkflow failed", "orderID", input.OrderID, "error", workflowErr)
+		return &models.BookingResult{State: state}, workflowErr
 	}
 
 	logger.Info("BookingWorkflow completed", "orderID", input.OrderID, "status", state.Status)
