@@ -1,6 +1,7 @@
 # Flight Booking System with Temporal
 
-A production-ready flight booking system built with Go and Temporal demonstrating workflow orchestration, seat reservations with timeouts, payment validation with retries, and concurrent booking handling.
+A Temporal demostration flight booking system built with Go 
+ demonstrating workflow orchestration, seat reservations with timeouts, payment validation with retries, and concurrent booking handling.
 
 ## Features
 
@@ -14,7 +15,7 @@ A production-ready flight booking system built with Go and Temporal demonstratin
 ## Quick Start
 
 ```bash
-make setup      # First time only
+make setup      # First time only, setp tests
 make start      # Start all services
 make test       # Run tests
 ```
@@ -100,13 +101,7 @@ CREATED → SEATS_RESERVED → PAYMENT_PENDING → CONFIRMED
          EXPIRED              FAILED/CANCELLED
 ```
 
-## Testing
 
-```bash
-make test                                                    # All tests
-pytest tests/test_booking_flow.py::TestBasicBooking -v     # Specific test
-make test-parallel                                           # Parallel execution
-```
 
 ## Development
 
@@ -114,44 +109,6 @@ make test-parallel                                           # Parallel executio
 
 ```bash
 make build       # Build binaries (bin/server, bin/worker)
-make db-shell    # MySQL shell
-```
-
-## Usage Examples
-
-### Create Booking (CLI)
-```bash
-# Create order
-curl -X POST http://localhost:8080/api/flights/FL123/orders \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "alice", "seats": ["A1", "A2"]}'
-
-# Get status
-curl http://localhost:8080/api/orders/{orderId}
-
-# Submit payment
-curl -X POST http://localhost:8080/api/orders/{orderId}/payment \
-  -H "Content-Type: application/json" \
-  -d '{"paymentCode": "12345"}'
-```
-
-### Update Seats
-```bash
-curl -X POST http://localhost:8080/api/orders/{orderId}/seats \
-  -H "Content-Type: application/json" \
-  -d '{"seats": ["B1", "B2"]}'
-```
-
-### Cancel Order
-```bash
-curl -X DELETE http://localhost:8080/api/orders/{orderId}
-```
-
-## Troubleshooting
-
-```bash
-make logs               # Check Docker logs
-make clean && make setup    # Complete reset
 ```
 
 ## Key Workflows
