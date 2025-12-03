@@ -405,3 +405,157 @@ class TestOrderCancellation:
             "seats": ["C7"]
         })
         assert resp.status_code == 201
+
+
+class TestPaymentFailures:
+    """Test payment failure scenarios using special test code '00000'"""
+
+    def test_payment_failure_releases_seats(self):
+        """Payment failure should release reserved seats"""
+        # Create order
+        resp = requests.post(f"{BASE_URL}/flights/{FLIGHT_ID}/orders", json={
+            "userId": "test_user_fail",
+            "seats": ["A9"]
+        })
+        assert resp.status_code == 201
+        order_id = resp.json()["orderId"]
+        time.sleep(1)
+
+        # Verify seat is reserved
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_a9 = next(s for s in seats if s["seatNumber"] == "A9")
+        assert seat_a9["status"] == "RESERVED"
+
+        # Submit failing payment code (always fails)
+        resp = requests.post(f"{BASE_URL}/orders/{order_id}/payment", json={
+            "paymentCode": "00000"
+        })
+        assert resp.status_code == 200
+
+        # Wait for payment processing and retries (up to ~30s with retries)
+        max_wait = 35
+        for _ in range(max_wait):
+            time.sleep(1)
+            resp = requests.get(f"{BASE_URL}/orders/{order_id}")
+            status = resp.json()["status"]
+            if status == "FAILED":
+                break
+
+        # Verify order failed
+        resp = requests.get(f"{BASE_URL}/orders/{order_id}")
+        assert resp.json()["status"] == "FAILED"
+
+        # Verify seat is released
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_a9 = next(s for s in seats if s["seatNumber"] == "A9")
+        assert seat_a9["status"] == "AVAILABLE"
+
+    def test_payment_failure_after_seat_update(self):
+        """Payment failure after seat update should release all seats"""
+        # Create order
+        resp = requests.post(f"{BASE_URL}/flights/{FLIGHT_ID}/orders", json={
+            "userId": "test_user_fail2",
+            "seats": ["B9"]
+        })
+        assert resp.status_code == 201
+        order_id = resp.json()["orderId"]
+        time.sleep(1)
+
+        # Verify seat B9 is reserved
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_b9 = next(s for s in seats if s["seatNumber"] == "B9")
+        assert seat_b9["status"] == "RESERVED"
+
+        # Update seats
+        resp = requests.post(f"{BASE_URL}/orders/{order_id}/seats", json={
+            "seats": ["B10"]
+        })
+        assert resp.status_code == 200
+        time.sleep(1)
+
+        # Verify old seat B9 is available and new seat B10 is reserved
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_b9 = next(s for s in seats if s["seatNumber"] == "B9")
+        seat_b10 = next(s for s in seats if s["seatNumber"] == "B10")
+        assert seat_b9["status"] == "AVAILABLE"
+        assert seat_b10["status"] == "RESERVED"
+
+        # Submit failing payment
+        resp = requests.post(f"{BASE_URL}/orders/{order_id}/payment", json={
+            "paymentCode": "00000"
+        })
+        assert resp.status_code == 200
+
+        # Wait for failure
+        max_wait = 35
+        for _ in range(max_wait):
+            time.sleep(1)
+            resp = requests.get(f"{BASE_URL}/orders/{order_id}")
+            if resp.json()["status"] == "FAILED":
+                break
+
+        # Verify order failed
+        resp = requests.get(f"{BASE_URL}/orders/{order_id}")
+        assert resp.json()["status"] == "FAILED"
+
+        # Verify the current seat (B10) is released
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_b9 = next(s for s in seats if s["seatNumber"] == "B9")
+        seat_b10 = next(s for s in seats if s["seatNumber"] == "B10")
+        assert seat_b9["status"] == "AVAILABLE"
+        assert seat_b10["status"] == "AVAILABLE"
+
+    def test_released_seat_can_be_rebooked(self):
+        """After payment failure, another user can book the released seat"""
+        # User 1 creates order
+        resp = requests.post(f"{BASE_URL}/flights/{FLIGHT_ID}/orders", json={
+            "userId": "user_fail_1",
+            "seats": ["C9"]
+        })
+        assert resp.status_code == 201
+        order_id_1 = resp.json()["orderId"]
+        time.sleep(1)
+
+        # Submit failing payment
+        resp = requests.post(f"{BASE_URL}/orders/{order_id_1}/payment", json={
+            "paymentCode": "00000"
+        })
+        assert resp.status_code == 200
+
+        # Wait for failure
+        max_wait = 35
+        for _ in range(max_wait):
+            time.sleep(1)
+            resp = requests.get(f"{BASE_URL}/orders/{order_id_1}")
+            if resp.json()["status"] == "FAILED":
+                break
+
+        # Verify seat C9 is available
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_c9 = next(s for s in seats if s["seatNumber"] == "C9")
+        assert seat_c9["status"] == "AVAILABLE"
+
+        # User 2 can now book the same seat
+        resp = requests.post(f"{BASE_URL}/flights/{FLIGHT_ID}/orders", json={
+            "userId": "user_success_2",
+            "seats": ["C9"]
+        })
+        assert resp.status_code == 201
+        order_id_2 = resp.json()["orderId"]
+        time.sleep(1)
+
+        # Verify seat is reserved for user 2
+        resp = requests.get(f"{BASE_URL}/flights/{FLIGHT_ID}/seats")
+        seats = resp.json()["seats"]
+        seat_c9 = next(s for s in seats if s["seatNumber"] == "C9")
+        assert seat_c9["status"] == "RESERVED"
+
+        # Verify order status
+        resp = requests.get(f"{BASE_URL}/orders/{order_id_2}")
+        assert resp.json()["status"] == "SEATS_RESERVED"

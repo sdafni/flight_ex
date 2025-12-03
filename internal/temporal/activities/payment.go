@@ -36,6 +36,15 @@ func (a *PaymentActivities) ValidatePayment(ctx context.Context, paymentCode str
 		}, nil
 	}
 
+	// Special test code: always fail (for testing payment failure flow)
+	// Make this a non-retryable error by returning nil error with Success=false
+	if paymentCode == "00000" {
+		return &models.PaymentResult{
+			Success:      false,
+			ErrorMessage: "payment gateway error (simulated test failure)",
+		}, nil
+	}
+
 	// Simulate random delay (0-5 seconds)
 	delay := time.Duration(rand.Intn(5000)) * time.Millisecond
 	time.Sleep(delay)

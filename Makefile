@@ -54,6 +54,8 @@ start: docker-up
 	@echo "Starting application services..."
 	@echo "Starting Temporal worker..."
 	go run cmd/worker/main.go &
+	@echo "Waiting for worker to initialize..."
+	sleep 2
 	@echo "Starting HTTP server..."
 	go run cmd/server/main.go &
 	@echo "All services started!"
@@ -61,13 +63,18 @@ start: docker-up
 	@echo "Temporal UI: http://localhost:8088"
 
 # Stop all services
-stop:
+stop-all:
 	@echo "Stopping services..."
 	-pkill -f "go run cmd/server/main.go"
 	-pkill -f "go run cmd/worker/main.go"
 	docker-compose down
 	@echo "Services stopped!"
 
+stop:
+	@echo "Stopping services..."
+	-pkill -f "go run cmd/server/main.go"
+	-pkill -f "go run cmd/worker/main.go"
+	@echo "Services stopped!"
 # Run tests
 test:
 	@echo "Running tests..."

@@ -39,8 +39,10 @@ func main() {
 
 	log.Println("Connected to Temporal")
 
-	// Create worker
-	w := worker.New(temporalClient, "booking-task-queue", worker.Options{})
+	// Create worker with logging enabled
+	w := worker.New(temporalClient, "booking-task-queue", worker.Options{
+		EnableLoggingInReplay: true,
+	})
 
 	// Register workflows
 	w.RegisterWorkflow(workflows.BookingWorkflow)

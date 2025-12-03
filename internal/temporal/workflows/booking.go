@@ -134,8 +134,10 @@ func BookingWorkflow(ctx workflow.Context, input models.BookingInput) (*models.B
 				state.OrderID, models.StatusPaymentPending).Get(ctx, nil)
 
 			// Execute payment validation child workflow
+			// Use workflow run ID to ensure unique child workflow ID even if order is retried
+			workflowInfo := workflow.GetInfo(ctx)
 			childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
-				WorkflowID: state.OrderID + "-payment",
+				WorkflowID: state.OrderID + "-payment-" + workflowInfo.WorkflowExecution.RunID,
 			})
 
 			var paymentResult *models.PaymentResult
