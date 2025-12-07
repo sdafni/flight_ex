@@ -143,6 +143,25 @@ make build       # Build binaries (bin/server, bin/worker)
 - Metrics/monitoring
 - Rate limiting
 
+## TODO / Known Issues
+- [ ] Remove `config.Load()` from workflows (non-deterministic) - pass timeouts via workflow input
+- [ ] Fix `GetOrder` to return `database.ErrOrderNotFound` instead of generic error
+- [ ] Remove `time.Sleep(100ms)` from `CreateOrder` handler - race condition
+- [ ] Replace hard-coded `15*time.Minute` in `reserveSeatsInTx` with config parameter
+- [ ] Fix order creation race: persist order before starting workflow, or cancel workflow on DB failure
+- [ ] Use `r.Context()` instead of `context.Background()` for Temporal/DB calls
+- [ ] Standardize error responses to JSON format (replace `http.Error` with JSON helper)
+- [ ] Pass `*config.Config` to handler constructor instead of loading per request
+- [ ] Make CORS origins configurable (currently allows `*`)
+- [ ] API calls don't properly handle requests when order is in terminal state (CONFIRMED/FAILED/EXPIRED/CANCELLED)
+  - Fix API calls handling when order is closed (or just tests)
+- [ ] Centralize reservation timeout logic - DB and workflow use different sources
+- [ ] Check activity errors for `UpdateOrderStatus`/`UpdatePaymentRecord` - currently ignored
+- [ ] Clarify payment result/error handling - currently mixes `error` and `PaymentResult.Success`
+- [ ] Activities receive multiple individual arguments instead of structured objects
+  - Pass arguments as single objects to activities
+- [ ] Add context support to database methods for cancellation/timeout propagation
+
 ## License
 
 MIT

@@ -406,6 +406,34 @@ class TestOrderCancellation:
         })
         assert resp.status_code == 201
 
+    def test_update_seats_on_cancelled_order(self):
+        """Trying to update seats on a cancelled order should fail"""
+        # Create order
+        resp = requests.post(f"{BASE_URL}/flights/{FLIGHT_ID}/orders", json={
+            "userId": "test_cancel_seats",
+            "seats": ["D1"]
+        })
+        assert resp.status_code == 201
+        order_id = resp.json()["orderId"]
+        time.sleep(1)
+
+        # Cancel order
+        resp = requests.delete(f"{BASE_URL}/orders/{order_id}")
+        assert resp.status_code == 200
+        time.sleep(1)
+
+        # Verify order is cancelled
+        resp = requests.get(f"{BASE_URL}/orders/{order_id}")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "CANCELLED"
+
+        # Try to update seats on cancelled order
+        resp = requests.post(f"{BASE_URL}/orders/{order_id}/seats", json={
+            "seats": ["D2"]
+        })
+        # Should fail - workflow is terminated
+        assert resp.status_code == 500
+
 
 class TestPaymentFailures:
     """Test payment failure scenarios using special test code '00000'"""
